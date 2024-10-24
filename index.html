@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MOJORU月度看板</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+    <link rel="icon" class="js-site-favicon" type="image/svg+xml"
+  href="https://cdn.iconscout.com/icon/premium/png-256-thumb/gears-2280063-1902308.png?f=webp">
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .logo {
+            display: block;
+            margin: 0 auto 20px;  
+            width: 120px;  
+        }
+        .month-input {
+            width: 100%;
+            min-height: 120px;
+            box-sizing: border-box;
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
+            resize: none;
+            font-size: 16px;
+            transition: all 0.2s ease;
+            padding: 10px;
+            outline: none;
+            background-color: rgb(199, 237, 204);
+        }
+        .month-header {
+            background-color: #e7f3ff;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            color: #409EFF;
+        }
+        .button-group {
+            text-align: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="container">
+      <img src="https://static.vecteezy.com/system/resources/previews/022/666/101/non_2x/planet-earth-cartoon-colored-clipart-illustration-free-vector.jpg" alt="Logo" class="logo">
+        <h1>{{ year }} 年度 todolist</h1>
+        <el-row :gutter="20">
+            <el-col v-for="(month, index) in months" :key="index" :span="6">
+                <div class="month-header">{{ month }}</div>
+                <textarea 
+                    class="month-input" 
+                    v-model="tasks[index]" 
+                    @input="adjustHeight($event)">
+                </textarea>
+            </el-col>
+        </el-row>
+        <div class="button-group">
+            <el-button type="primary" @click="saveData">保存</el-button>
+            <el-button type="info" @click="downloadImage">下载当前页面截图</el-button>
+        </div>
+    </div>
+
+    <script>
+        new Vue({
+            el: '#app',
+            data() {
+                return {
+                    year: new Date().getFullYear(),
+                    months: [
+                        '🌱 一月',
+                        '🌿 二月',
+                        '🍃 三月',
+                        '🌳 四月',
+                        '🌲 五月',
+                        '🌵 六月',
+                        '🍂 七月',
+                        '🌻 八月',
+                        '🌼 九月',
+                        '🌸 十月',
+                        '🌺 十一月',
+                        '🎄 十二月'
+                    ],
+                    tasks: Array(12).fill('')
+                };
+            },
+            mounted() {
+                this.loadData(); // 页面加载时加载数据
+            },
+            methods: {
+                adjustHeight(event) {
+                    event.target.style.height = "auto"; // Reset height
+                    event.target.style.height = (event.target.scrollHeight) + "px";
+                  },
+                async saveData() {
+                    const db = await this.openDatabase();
+                    const transaction = db.transaction(['tasks'], 'readwrite');
+                    const store = transaction.objectStore('tasks');
+                    await store.put({ id: 'monthlyTasks', tasks: this.tasks });
+                    alert('保存成功！');
+                },
+                async loadData() {
+                    const db = await this.openDatabase();
+                    const transaction = db.transaction(['tasks'], 'readonly');
+                    const store = transaction.objectStore('tasks');
+                    const request = store.get('monthlyTasks');
+
+                    request.onsuccess = (event) => {
+                        const result = event.target.result;
+                        if (result) {
+                            this.tasks = result.tasks;
+                        } else {
+                            console.log('没有找到保存的数据。');
+                        }
+                    };
+                },
+                openDatabase() {
+                    return new Promise((resolve, reject) => {
+                        const request = indexedDB.open('MonthlyTasksDB', 1);
+                        
+                        request.onupgradeneeded = (event) => {
+                            const db = event.target.result;
+                            if (!db.objectStoreNames.contains('tasks')) {
+                                db.createObjectStore('tasks', { keyPath: 'id' });
+                            }
+                        };
+
+                        request.onsuccess = (event) => {
+                            resolve(event.target.result);
+                        };
+
+                        request.onerror = (event) => {
+                            reject('数据库打开失败: ' + event.target.errorCode);
+                        };
+                    });
+                },
+                downloadImage() {
+                    html2canvas(document.querySelector("#app")).then(canvas => {
+                        const link = document.createElement('a');
+                        link.href = canvas.toDataURL("image/png");
+                        link.download = `${this.year}-月度看板.png`;
+                        link.click();
+                    });
+                }
+            }
+        });
+    </script>
+</body>
+</html>
